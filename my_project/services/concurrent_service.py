@@ -61,7 +61,11 @@ class ConcurrentRequestService:
                     'data_id': data_item.get('id'),
                     'success': response.status == 200,
                     'status': response.status,
-                    'result': result,
+                    'result': {
+                        'text': data_item.get('text', ''),
+                        'photos': data_item.get('photos', []),
+                        'generated_text': result.get('generated_text', '')
+                    },
                     'request_time': request_time
                 }
         except asyncio.TimeoutError:
@@ -75,7 +79,11 @@ class ConcurrentRequestService:
                 'data_id': data_item.get('id'),
                 'success': False,
                 'error': '请求超时',
-                'request_time': request_time
+                'request_time': request_time,
+                'result': {
+                    'text': data_item.get('text', ''),
+                    'photos': data_item.get('photos', [])
+                }
             }
         except Exception as e:
             request_time = time.time() - request_start_time
@@ -88,7 +96,11 @@ class ConcurrentRequestService:
                 'data_id': data_item.get('id'),
                 'success': False,
                 'error': str(e),
-                'request_time': request_time
+                'request_time': request_time,
+                'result': {
+                    'text': data_item.get('text', ''),
+                    'photos': data_item.get('photos', [])
+                }
             }
     
     async def process_with_semaphore(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, data_item: Dict[str, Any]) -> Dict[str, Any]:

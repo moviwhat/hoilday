@@ -1,37 +1,103 @@
-async function callAPI() {
-    const inputData = document.getElementById('inputData').value;
-    const resultDiv = document.getElementById('result');
-    const submitBtn = document.getElementById('submitBtn');
+let globalData = [];
+
+async function loadData() {
+    const loading = document.getElementById('loading');
+    const dataList = document.getElementById('dataList');
+    const processBtn = document.getElementById('processBtn');
     
-    if (!inputData.trim()) {
-        alert('请输入数据');
-        return;
-    }
-    
-    submitBtn.disabled = true;
-    submitBtn.textContent = '处理中...';
-    resultDiv.innerHTML = '<p>正在调用服务...</p>';
+    loading.style.display = 'block';
+    dataList.innerHTML = '';
     
     try {
-        const response = await fetch('/api/call', {
+        const response = await fetch('/api/concurrent', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ data: inputData })
+            }
         });
         
         const result = await response.json();
         
-        if (response.ok) {
-            resultDiv.innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+        if (result.success) {
+            globalData = result.results;
+            renderDataList();
+            processBtn.disabled = false;
         } else {
-            resultDiv.innerHTML = '<p style="color: red;">错误: ' + result.error + '</p>';
+            alert('加载失败：' + result.error);
         }
     } catch (error) {
-        resultDiv.innerHTML = '<p style="color: red;">请求失败: ' + error.message + '</p>';
+        alert('请求失败：' + error.message);
     } finally {
-        submitBtn.disabled = false;
-        submitBtn.textContent = '提交';
+        loading.style.display = 'none';
     }
+}
+
+function renderDataList() {
+    const dataList = document.getElementById('dataList');
+    dataList.innerHTML = '';
+    
+    globalData.forEach((item, index) => {
+        const dataItem = document.createElement('div');
+        dataItem.className = 'data-item';
+        
+        const statusClass = item.success ? 'status-success' : 'status-error';
+        const statusText = item.success ? '成功' : '失败';
+        
+        let photosHtml = '';
+        if (item.result && item.result.photos) {
+            photosHtml = '<div class="photos-container">';
+            item.result.photos.forEach(photo => {
+                photosHtml += `
+                    <div class="photo-item">
+                        <img src="${photo.url}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
+                    </div>
+                `;
+            });
+            photosHtml += '</div>';
+        }
+        
+        let originalText = '';
+        let resultText = '';
+        
+        if (item.result && item.result.text) {
+            originalText = item.result.text;
+        }
+        
+        if (item.success && item.result && item.result.generated_text) {
+            resultText = `
+                <div class="text-block result-text">
+                    <div class="text-label">请求返回的文案</div>
+                    <div class="text-content">${item.result.generated_text}</div>
+                </div>
+            `;
+        } else if (!item.success) {
+            resultText = `
+                <div class="text-block error-text">
+                    <div class="text-label">错误信息</div>
+                    <div class="text-content">${item.error || '未知错误'}</div>
+                </div>
+            `;
+        }
+        
+        dataItem.innerHTML = `
+            <div class="data-item-header">
+                <span class="data-item-id">数据项 #${item.data_id || index + 1}</span>
+                <span class="data-item-status ${statusClass}">${statusText}</span>
+            </div>
+            ${photosHtml}
+            <div class="text-section">
+                <div class="text-block original-text">
+                    <div class="text-label">原始文案</div>
+                    <div class="text-content">${originalText || '无'}</div>
+                </div>
+                ${resultText}
+            </div>
+        `;
+        
+        dataList.appendChild(dataItem);
+    });
+}
+
+function processData() {
+    alert('处理功能待实现');
 }
