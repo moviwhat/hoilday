@@ -8,6 +8,17 @@ api_service = APIService()
 def index():
     return render_template('index.html')
 
+@app.route('/api/load-data', methods=['GET'])
+def load_local_data():
+    try:
+        data_items = api_service.concurrent_service.load_data_config()
+        return jsonify({
+            'success': True,
+            'data': data_items
+        })
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/concurrent', methods=['POST'])
 def send_concurrent_requests():
     try:

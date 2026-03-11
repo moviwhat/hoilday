@@ -1,4 +1,5 @@
 let globalData = [];
+let isProcessed = false;
 
 async function loadData() {
     const loading = document.getElementById('loading');
@@ -7,6 +8,50 @@ async function loadData() {
     
     loading.style.display = 'block';
     dataList.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/load-data', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            globalData = result.data.map(item => ({
+                data_id: item.id,
+                success: false,
+                result: {
+                    text: item.text,
+                    photos: item.photos
+                }
+            }));
+            renderDataList();
+            processBtn.disabled = false;
+        } else {
+            alert('加载失败：' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败：' + error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+async function processData() {
+    const processBtn = document.getElementById('processBtn');
+    const loading = document.getElementById('loading');
+    
+    if (isProcessed) {
+        alert('已经处理过了，如需重新处理请刷新页面');
+        return;
+    }
+    
+    loading.style.display = 'block';
+    processBtn.disabled = true;
+    processBtn.textContent = '处理中...';
     
     try {
         const response = await fetch('/api/concurrent', {
@@ -20,13 +65,18 @@ async function loadData() {
         
         if (result.success) {
             globalData = result.results;
+            isProcessed = true;
             renderDataList();
-            processBtn.disabled = false;
+            processBtn.textContent = '处理完成';
         } else {
-            alert('加载失败：' + result.error);
+            alert('处理失败：' + result.error);
+            processBtn.disabled = false;
+            processBtn.textContent = '开始处理';
         }
     } catch (error) {
         alert('请求失败：' + error.message);
+        processBtn.disabled = false;
+        processBtn.textContent = '开始处理';
     } finally {
         loading.style.display = 'none';
     }
@@ -40,8 +90,13 @@ function renderDataList() {
         const dataItem = document.createElement('div');
         dataItem.className = 'data-item';
         
-        const statusClass = item.success ? 'status-success' : 'status-error';
-        const statusText = item.success ? '成功' : '失败';
+        let statusClass = 'status-pending';
+        let statusText = '待处理';
+        
+        if (isProcessed) {
+            statusClass = item.success ? 'status-success' : 'status-error';
+            statusText = item.success ? '成功' : '失败';
+        }
         
         let photosHtml = '';
         if (item.result && item.result.photos) {
@@ -63,14 +118,14 @@ function renderDataList() {
             originalText = item.result.text;
         }
         
-        if (item.success && item.result && item.result.generated_text) {
+        if (isProcessed && item.success && item.result && item.result.generated_text) {
             resultText = `
                 <div class="text-block result-text">
                     <div class="text-label">请求返回的文案</div>
                     <div class="text-content">${item.result.generated_text}</div>
                 </div>
             `;
-        } else if (!item.success) {
+        } else if (isProcessed && !item.success) {
             resultText = `
                 <div class="text-block error-text">
                     <div class="text-label">错误信息</div>
@@ -98,6 +153,6 @@ function renderDataList() {
     });
 }
 
-function processData() {
-    alert('处理功能待实现');
-}
+window.onload = function() {
+    loadData();
+};
