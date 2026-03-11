@@ -22,7 +22,9 @@ def load_local_data():
 @app.route('/api/concurrent', methods=['POST'])
 def send_concurrent_requests():
     try:
-        results = api_service.send_concurrent_requests()
+        data = request.get_json() or {}
+        user_prompt = data.get('userPrompt', '')
+        results = api_service.send_concurrent_requests(user_prompt=user_prompt)
         return jsonify({
             'success': True,
             'total': len(results),

@@ -40,13 +40,17 @@ class ConcurrentRequestService:
         print(f"总耗时: {elapsed_time:.2f}秒")
         print(f"=" * 50)
     
-    async def send_single_request(self, session: aiohttp.ClientSession, data_item: Dict[str, Any]) -> Dict[str, Any]:
+    async def send_single_request(self, session: aiohttp.ClientSession, data_item: Dict[str, Any], user_prompt: str = '') -> Dict[str, Any]:
         request_start_time = time.time()
+        
+        request_data = dict(data_item)
+        if user_prompt:
+            request_data['user_prompt'] = user_prompt
         
         try:
             async with session.post(
                 f"{self.api_base_url}/process",
-                json=data_item,
+                json=request_data,
                 timeout=aiohttp.ClientTimeout(total=self.timeout)
             ) as response:
                 result = await response.json()
@@ -103,11 +107,11 @@ class ConcurrentRequestService:
                 }
             }
     
-    async def process_with_semaphore(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, data_item: Dict[str, Any]) -> Dict[str, Any]:
+    async def process_with_semaphore(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, data_item: Dict[str, Any], user_prompt: str = '') -> Dict[str, Any]:
         async with semaphore:
-            return await self.send_single_request(session, data_item)
+            return await self.send_single_request(session, data_item, user_prompt)
     
-    async def send_concurrent_requests(self) -> List[Dict[str, Any]]:
+    async def send_concurrent_requests(self, user_prompt: str = '') -> List[Dict[str, Any]]:
         data_items = self.load_data_config()
         
         if not data_items:
@@ -118,13 +122,15 @@ class ConcurrentRequestService:
         self.request_times = []
         self.start_time = time.time()
         
-        print(f"开始并发请求，总请求数: {self.total_count}, 最大并发数: {self.max_concurrent}")
+        print(f"开始并发请求，总请求数：{self.total_count}, 最大并发数：{self.max_concurrent}")
+        if user_prompt:
+            print(f"用户提示词：{user_prompt}")
         
         semaphore = asyncio.Semaphore(self.max_concurrent)
         
         async with aiohttp.ClientSession() as session:
             tasks = [
-                self.process_with_semaphore(session, semaphore, item)
+                self.process_with_semaphore(session, semaphore, item, user_prompt)
                 for item in data_items
             ]
             
@@ -135,12 +141,12 @@ class ConcurrentRequestService:
             
             print(f"\n所有请求已完成!")
             print(f"=" * 50)
-            print(f"总请求数: {self.total_count}")
-            print(f"总耗时: {total_time:.2f}秒")
-            print(f"平均每个请求耗时: {avg_time:.2f}秒")
+            print(f"总请求数：{self.total_count}")
+            print(f"总耗时：{total_time:.2f}秒")
+            print(f"平均每个请求耗时：{avg_time:.2f}秒")
             print(f"=" * 50)
             
             return list(results)
     
-    def execute(self) -> List[Dict[str, Any]]:
-        return asyncio.run(self.send_concurrent_requests())
+    def execute(self, user_prompt: str = '') -> List[Dict[str, Any]]:
+        return asyncio.run(self.send_concurrent_requests(user_prompt=user_prompt))

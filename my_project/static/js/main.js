@@ -43,6 +43,7 @@ async function loadData() {
 async function processData() {
     const processBtn = document.getElementById('processBtn');
     const loading = document.getElementById('loading');
+    const userPrompt = document.getElementById('userPrompt').value;
     
     if (isProcessed) {
         alert('已经处理过了，如需重新处理请刷新页面');
@@ -58,7 +59,10 @@ async function processData() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-            }
+            },
+            body: JSON.stringify({
+                userPrompt: userPrompt
+            })
         });
         
         const result = await response.json();
