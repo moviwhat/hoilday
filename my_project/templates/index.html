@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Project</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>欢迎使用My Project</h1>
+        
+        <div class="input-section">
+            <label for="inputData">输入数据:</label>
+            <textarea id="inputData" rows="4" cols="50" placeholder="请输入数据..."></textarea>
+        </div>
+        
+        <button id="submitBtn" onclick="callAPI()">提交</button>
+        
+        <div class="result-section">
+            <h2>结果:</h2>
+            <div id="result"></div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,28 @@
+{
+  "data": [
+    {
+      "id": 1,
+      "text": "这是长城的美丽风景照片",
+      "photos": [
+        {
+          "id": 1,
+          "url": "E:/photos/great_wall_1.jpg"
+        },
+        {
+          "id": 2,
+          "url": "E:/photos/great_wall_2.jpg"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "text": "城市夜景照片集",
+      "photos": [
+        {
+          "id": 1,
+          "url": "E:/photos/city_night.jpg"
+        }
+      ]
+    }
+  ]
+}
