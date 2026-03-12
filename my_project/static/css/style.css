@@ -113,6 +113,25 @@ button:disabled {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
 }
 
+.data-item-content {
+    display: grid;
+    grid-template-columns: 300px 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.data-item-left {
+    min-width: 0;
+}
+
+.data-item-center {
+    min-width: 0;
+}
+
+.data-item-right {
+    min-width: 0;
+}
+
 .data-item-header {
     display: flex;
     justify-content: space-between;
@@ -159,7 +178,6 @@ button:disabled {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
-    margin-bottom: 15px;
 }
 
 .photo-item {

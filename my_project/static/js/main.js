@@ -143,13 +143,23 @@ function renderDataList() {
                 <span class="data-item-id">数据项 #${item.data_id || index + 1}</span>
                 <span class="data-item-status ${statusClass}">${statusText}</span>
             </div>
-            ${photosHtml}
-            <div class="text-section">
-                <div class="text-block original-text">
-                    <div class="text-label">原始文案</div>
-                    <div class="text-content">${originalText || '无'}</div>
+            <div class="data-item-content">
+                <div class="data-item-left">
+                    ${photosHtml}
                 </div>
-                ${resultText}
+                <div class="data-item-center">
+                    <div class="text-section">
+                        <div class="text-block original-text">
+                            <div class="text-label">原始文案</div>
+                            <div class="text-content">${originalText || '无'}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-item-right">
+                    <div class="text-section">
+                        ${resultText || '<div class="text-block" style="border-left: 4px solid #999;"><div class="text-label">等待处理</div><div class="text-content" style="color: #999;">点击"开始处理"按钮生成文案</div></div>'}
+                    </div>
+                </div>
             </div>
         `;
         
