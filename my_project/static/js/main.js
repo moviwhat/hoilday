@@ -86,6 +86,7 @@ async function loadData() {
 
 async function processData() {
     const processBtn = document.getElementById('processBtn');
+    const exportBtn = document.getElementById('exportBtn');
     const loading = document.getElementById('loading');
     const userPrompt = document.getElementById('userPrompt').value;
     const selectedStyle = getSelectedStyle();
@@ -119,6 +120,7 @@ async function processData() {
             isProcessed = true;
             renderDataList();
             processBtn.textContent = '处理完成';
+            exportBtn.disabled = false;
         } else {
             alert('处理失败：' + result.error);
             processBtn.disabled = false;
@@ -213,6 +215,48 @@ function renderDataList() {
         
         dataList.appendChild(dataItem);
     });
+}
+
+async function exportToExcel() {
+    if (globalData.length === 0) {
+        alert('没有数据可导出');
+        return;
+    }
+    
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.disabled = true;
+    exportBtn.textContent = '导出中...';
+    
+    try {
+        const response = await fetch('/api/export-excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                results: globalData
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'copywriting_result_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            alert('导出失败');
+        }
+    } catch (error) {
+        alert('导出失败：' + error.message);
+    } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = '导出 Excel';
+    }
 }
 
 window.onload = function() {
