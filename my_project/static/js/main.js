@@ -1,5 +1,30 @@
 let globalData = [];
 let isProcessed = false;
+let globalSystemPrompt = '';
+
+function initStyleSelect() {
+    const styleSelect = document.getElementById('styleSelect');
+    const customStyle = document.getElementById('customStyle');
+    
+    styleSelect.addEventListener('change', function() {
+        if (this.value === '自定义') {
+            customStyle.style.display = 'inline-block';
+        } else {
+            customStyle.style.display = 'none';
+            customStyle.value = '';
+        }
+    });
+}
+
+function getSelectedStyle() {
+    const styleSelect = document.getElementById('styleSelect');
+    const customStyle = document.getElementById('customStyle');
+    
+    if (styleSelect.value === '自定义') {
+        return customStyle.value || '文艺';
+    }
+    return styleSelect.value;
+}
 
 async function loadData() {
     const loading = document.getElementById('loading');
@@ -28,6 +53,25 @@ async function loadData() {
                     photos: item.photos
                 }
             }));
+            
+            globalSystemPrompt = result.system_prompt || '';
+            
+            const styleSelect = document.getElementById('styleSelect');
+            styleSelect.innerHTML = '';
+            
+            if (result.styles && Array.isArray(result.styles)) {
+                result.styles.forEach(style => {
+                    const option = document.createElement('option');
+                    option.value = style;
+                    option.text = style;
+                    styleSelect.appendChild(option);
+                });
+                
+                if (result.default_style) {
+                    styleSelect.value = result.default_style;
+                }
+            }
+            
             renderDataList();
             processBtn.disabled = false;
         } else {
@@ -44,6 +88,7 @@ async function processData() {
     const processBtn = document.getElementById('processBtn');
     const loading = document.getElementById('loading');
     const userPrompt = document.getElementById('userPrompt').value;
+    const selectedStyle = getSelectedStyle();
     
     if (isProcessed) {
         alert('已经处理过了，如需重新处理请刷新页面');
@@ -61,7 +106,9 @@ async function processData() {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                userPrompt: userPrompt
+                userPrompt: userPrompt,
+                style: selectedStyle,
+                systemPrompt: globalSystemPrompt
             })
         });
         
@@ -106,9 +153,10 @@ function renderDataList() {
         if (item.result && item.result.photos) {
             photosHtml = '<div class="photos-container">';
             item.result.photos.forEach(photo => {
+                const photoUrl = '/api/photo/' + encodeURIComponent(photo.url);
                 photosHtml += `
                     <div class="photo-item">
-                        <img src="${photo.url}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
+                        <img src="${photoUrl}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
                     </div>
                 `;
             });
@@ -168,5 +216,6 @@ function renderDataList() {
 }
 
 window.onload = function() {
+    initStyleSelect();
     loadData();
 };

@@ -1,4 +1,7 @@
 {
+  "style": ["文艺", "网红", "叙事", "自定义"],
+  "default_style": "文艺",
+  "system_prompt": "你是一个专业的文案生成助手，请根据用户提供的图片和文案生成合适的推广内容。",
   "data": [
     {
       "id": 1,
@@ -6,11 +9,11 @@
       "photos": [
         {
           "id": 1,
-          "url": "E:/photos/great_wall_1.jpg"
+          "url": "E:/photos/长城/great_wall_1.jpg"
         },
         {
           "id": 2,
-          "url": "E:/photos/great_wall_2.jpg"
+          "url": "E:/photos/长城/great_wall_2.jpg"
         }
       ]
     },
@@ -20,7 +23,7 @@
       "photos": [
         {
           "id": 1,
-          "url": "E:/photos/city_night.jpg"
+          "url": "E:/photos/上海/city_night.jpg"
         }
       ]
     }

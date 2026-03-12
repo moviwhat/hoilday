@@ -18,14 +18,14 @@ class ConcurrentRequestService:
         self.request_times = []
         self.lock = asyncio.Lock()
     
-    def load_data_config(self) -> List[Dict[str, Any]]:
+    def load_data_config(self) -> Dict[str, Any]:
         try:
             with open(self.data_config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
-                return config.get('data', [])
+                return config
         except Exception as e:
             print(f"加载配置文件失败: {e}")
-            return []
+            return {'data': [], 'style': '文艺', 'system_prompt': ''}
     
     async def print_progress(self):
         elapsed_time = time.time() - self.start_time
@@ -40,12 +40,16 @@ class ConcurrentRequestService:
         print(f"总耗时: {elapsed_time:.2f}秒")
         print(f"=" * 50)
     
-    async def send_single_request(self, session: aiohttp.ClientSession, data_item: Dict[str, Any], user_prompt: str = '') -> Dict[str, Any]:
+    async def send_single_request(self, session: aiohttp.ClientSession, data_item: Dict[str, Any], user_prompt: str = '', style: str = '文艺', system_prompt: str = '') -> Dict[str, Any]:
         request_start_time = time.time()
         
         request_data = dict(data_item)
         if user_prompt:
             request_data['user_prompt'] = user_prompt
+        if style:
+            request_data['style'] = style
+        if system_prompt:
+            request_data['system_prompt'] = system_prompt
         
         try:
             async with session.post(
@@ -107,12 +111,13 @@ class ConcurrentRequestService:
                 }
             }
     
-    async def process_with_semaphore(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, data_item: Dict[str, Any], user_prompt: str = '') -> Dict[str, Any]:
+    async def process_with_semaphore(self, session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, data_item: Dict[str, Any], user_prompt: str = '', style: str = '文艺', system_prompt: str = '') -> Dict[str, Any]:
         async with semaphore:
-            return await self.send_single_request(session, data_item, user_prompt)
+            return await self.send_single_request(session, data_item, user_prompt, style, system_prompt)
     
-    async def send_concurrent_requests(self, user_prompt: str = '') -> List[Dict[str, Any]]:
-        data_items = self.load_data_config()
+    async def send_concurrent_requests(self, user_prompt: str = '', style: str = '文艺', system_prompt: str = '') -> List[Dict[str, Any]]:
+        config_data = self.load_data_config()
+        data_items = config_data.get('data', [])
         
         if not data_items:
             return []
@@ -125,12 +130,16 @@ class ConcurrentRequestService:
         print(f"开始并发请求，总请求数：{self.total_count}, 最大并发数：{self.max_concurrent}")
         if user_prompt:
             print(f"用户提示词：{user_prompt}")
+        if style:
+            print(f"文风：{style}")
+        if system_prompt:
+            print(f"系统提示词：{system_prompt}")
         
         semaphore = asyncio.Semaphore(self.max_concurrent)
         
         async with aiohttp.ClientSession() as session:
             tasks = [
-                self.process_with_semaphore(session, semaphore, item, user_prompt)
+                self.process_with_semaphore(session, semaphore, item, user_prompt, style, system_prompt)
                 for item in data_items
             ]
             
@@ -148,5 +157,5 @@ class ConcurrentRequestService:
             
             return list(results)
     
-    def execute(self, user_prompt: str = '') -> List[Dict[str, Any]]:
-        return asyncio.run(self.send_concurrent_requests(user_prompt=user_prompt))
+    def execute(self, user_prompt: str = '', style: str = '文艺', system_prompt: str = '') -> List[Dict[str, Any]]:
+        return asyncio.run(self.send_concurrent_requests(user_prompt, style, system_prompt))
