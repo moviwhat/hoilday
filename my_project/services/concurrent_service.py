@@ -40,10 +40,22 @@ class ConcurrentRequestService:
         print(f"总耗时: {elapsed_time:.2f}秒")
         print(f"=" * 50)
     
+    def get_text_by_style(self, data_item: Dict[str, Any], style: str = '文艺') -> str:
+        """根据文风获取对应的文案"""
+        texts = data_item.get('texts', {})
+        if texts and style in texts:
+            return texts[style]
+        # 兼容旧格式
+        return data_item.get('text', '')
+    
     async def send_single_request(self, session: aiohttp.ClientSession, data_item: Dict[str, Any], user_prompt: str = '', style: str = '文艺', system_prompt: str = '') -> Dict[str, Any]:
         request_start_time = time.time()
         
+        # 根据文风获取对应的文案
+        current_text = self.get_text_by_style(data_item, style)
+        
         request_data = dict(data_item)
+        request_data['text'] = current_text  # 使用当前文风的文案
         if user_prompt:
             request_data['user_prompt'] = user_prompt
         if style:
@@ -70,7 +82,7 @@ class ConcurrentRequestService:
                     'success': response.status == 200,
                     'status': response.status,
                     'result': {
-                        'text': data_item.get('text', ''),
+                        'text': current_text,
                         'photos': data_item.get('photos', []),
                         'generated_text': result.get('generated_text', '')
                     },
@@ -89,7 +101,7 @@ class ConcurrentRequestService:
                 'error': '请求超时',
                 'request_time': request_time,
                 'result': {
-                    'text': data_item.get('text', ''),
+                    'text': current_text,
                     'photos': data_item.get('photos', [])
                 }
             }
@@ -106,7 +118,7 @@ class ConcurrentRequestService:
                 'error': str(e),
                 'request_time': request_time,
                 'result': {
-                    'text': data_item.get('text', ''),
+                    'text': current_text,
                     'photos': data_item.get('photos', [])
                 }
             }

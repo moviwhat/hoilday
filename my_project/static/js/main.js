@@ -1,6 +1,8 @@
 let globalData = [];
+let rawDataSource = [];  // 存储原始数据源，包含所有文风的文案
 let isProcessed = false;
 let globalSystemPrompt = '';
+let currentStyle = '文艺';  // 当前选中的文风
 
 function initStyleSelect() {
     const styleSelect = document.getElementById('styleSelect');
@@ -13,6 +15,12 @@ function initStyleSelect() {
             customStyle.style.display = 'none';
             customStyle.value = '';
         }
+        
+        // 文风切换时更新原始文案显示
+        if (!isProcessed) {
+            currentStyle = this.value;
+            updateTextByStyle();
+        }
     });
 }
 
@@ -24,6 +32,26 @@ function getSelectedStyle() {
         return customStyle.value || '文艺';
     }
     return styleSelect.value;
+}
+
+function getTextByStyle(item, style) {
+    // 优先使用按文风区分的文案
+    if (item.texts && item.texts[style]) {
+        return item.texts[style];
+    }
+    // 兼容旧格式
+    return item.text || '';
+}
+
+function updateTextByStyle() {
+    // 根据当前文风更新 globalData 中的文案
+    globalData.forEach((item, index) => {
+        const rawItem = rawDataSource[index];
+        if (rawItem) {
+            item.result.text = getTextByStyle(rawItem, currentStyle);
+        }
+    });
+    renderDataList();
 }
 
 async function loadData() {
@@ -45,11 +73,17 @@ async function loadData() {
         const result = await response.json();
         
         if (result.success) {
+            // 存储原始数据源
+            rawDataSource = result.data;
+            
+            // 使用默认文风的文案初始化 globalData
+            currentStyle = result.default_style || '文艺';
+            
             globalData = result.data.map(item => ({
                 data_id: item.id,
                 success: false,
                 result: {
-                    text: item.text,
+                    text: getTextByStyle(item, currentStyle),
                     photos: item.photos
                 }
             }));
