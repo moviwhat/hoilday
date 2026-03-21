@@ -1,6 +1,6 @@
 let globalData = [];
 let rawDataSource = [];  // 存储原始数据源，包含所有文风的文案
-let isProcessed = false;
+let isProcessing = false;  // 正在处理中
 let globalSystemPrompt = '';
 let currentStyle = '文艺';  // 当前选中的文风
 
@@ -17,7 +17,7 @@ function initStyleSelect() {
         }
         
         // 文风切换时更新原始文案显示
-        if (!isProcessed) {
+        if (!isProcessing) {
             currentStyle = this.value;
             updateTextByStyle();
         }
@@ -53,251 +53,6 @@ function updateTextByStyle() {
     });
     renderDataList();
 }
-
-async function loadData() {
-    const loading = document.getElementById('loading');
-    const dataList = document.getElementById('dataList');
-    const processBtn = document.getElementById('processBtn');
-    
-    loading.style.display = 'block';
-    dataList.innerHTML = '';
-    
-    try {
-        const response = await fetch('/api/load-data', {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            }
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            // 存储原始数据源
-            rawDataSource = result.data;
-            
-            // 使用默认文风的文案初始化 globalData
-            currentStyle = result.default_style || '文艺';
-            
-            globalData = result.data.map(item => ({
-                data_id: item.id,
-                success: false,
-                result: {
-                    text: getTextByStyle(item, currentStyle),
-                    photos: item.photos
-                }
-            }));
-            
-            globalSystemPrompt = result.system_prompt || '';
-            
-            const styleSelect = document.getElementById('styleSelect');
-            styleSelect.innerHTML = '';
-            
-            if (result.styles && Array.isArray(result.styles)) {
-                result.styles.forEach(style => {
-                    const option = document.createElement('option');
-                    option.value = style;
-                    option.text = style;
-                    styleSelect.appendChild(option);
-                });
-                
-                if (result.default_style) {
-                    styleSelect.value = result.default_style;
-                }
-            }
-            
-            renderDataList();
-            processBtn.disabled = false;
-        } else {
-            alert('加载失败：' + result.error);
-        }
-    } catch (error) {
-        alert('请求失败：' + error.message);
-    } finally {
-        loading.style.display = 'none';
-    }
-}
-
-async function processData() {
-    const processBtn = document.getElementById('processBtn');
-    const exportBtn = document.getElementById('exportBtn');
-    const loading = document.getElementById('loading');
-    const userPrompt = document.getElementById('userPrompt').value;
-    const selectedStyle = getSelectedStyle();
-    
-    if (isProcessed) {
-        alert('已经处理过了，如需重新处理请刷新页面');
-        return;
-    }
-    
-    loading.style.display = 'block';
-    processBtn.disabled = true;
-    processBtn.textContent = '处理中...';
-    
-    try {
-        const response = await fetch('/api/concurrent', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                userPrompt: userPrompt,
-                style: selectedStyle,
-                systemPrompt: globalSystemPrompt
-            })
-        });
-        
-        const result = await response.json();
-        
-        if (result.success) {
-            globalData = result.results;
-            isProcessed = true;
-            renderDataList();
-            processBtn.textContent = '处理完成';
-            exportBtn.disabled = false;
-        } else {
-            alert('处理失败：' + result.error);
-            processBtn.disabled = false;
-            processBtn.textContent = '开始处理';
-        }
-    } catch (error) {
-        alert('请求失败：' + error.message);
-        processBtn.disabled = false;
-        processBtn.textContent = '开始处理';
-    } finally {
-        loading.style.display = 'none';
-    }
-}
-
-function renderDataList() {
-    const dataList = document.getElementById('dataList');
-    dataList.innerHTML = '';
-    
-    globalData.forEach((item, index) => {
-        const dataItem = document.createElement('div');
-        dataItem.className = 'data-item';
-        
-        let statusClass = 'status-pending';
-        let statusText = '待处理';
-        
-        if (isProcessed) {
-            statusClass = item.success ? 'status-success' : 'status-error';
-            statusText = item.success ? '成功' : '失败';
-        }
-        
-        let photosHtml = '';
-        if (item.result && item.result.photos) {
-            photosHtml = '<div class="photos-container">';
-            item.result.photos.forEach(photo => {
-                const photoUrl = '/api/photo/' + encodeURIComponent(photo.url);
-                photosHtml += `
-                    <div class="photo-item" onclick="showImagePreview('${photoUrl}', '图片 ${photo.id}')">
-                        <img src="${photoUrl}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
-                    </div>
-                `;
-            });
-            photosHtml += '</div>';
-        }
-        
-        let originalText = '';
-        let resultText = '';
-        
-        if (item.result && item.result.text) {
-            originalText = item.result.text;
-        }
-        
-        if (isProcessed && item.success && item.result && item.result.generated_text) {
-            resultText = `
-                <div class="text-block result-text">
-                    <div class="text-label">请求返回的文案</div>
-                    <div class="text-content">${item.result.generated_text}</div>
-                </div>
-            `;
-        } else if (isProcessed && !item.success) {
-            resultText = `
-                <div class="text-block error-text">
-                    <div class="text-label">错误信息</div>
-                    <div class="text-content">${item.error || '未知错误'}</div>
-                </div>
-            `;
-        }
-        
-        dataItem.innerHTML = `
-            <div class="data-item-header">
-                <span class="data-item-id">数据项 #${item.data_id || index + 1}</span>
-                <span class="data-item-status ${statusClass}">${statusText}</span>
-            </div>
-            <div class="data-item-content">
-                <div class="data-item-left">
-                    ${photosHtml}
-                </div>
-                <div class="data-item-center">
-                    <div class="text-section">
-                        <div class="text-block original-text">
-                            <div class="text-label">原始文案</div>
-                            <div class="text-content">${originalText || '无'}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="data-item-right">
-                    <div class="text-section">
-                        ${resultText || '<div class="text-block" style="border-left: 4px solid #999;"><div class="text-label">等待处理</div><div class="text-content" style="color: #999;">点击"开始处理"按钮生成文案</div></div>'}
-                    </div>
-                </div>
-            </div>
-        `;
-        
-        dataList.appendChild(dataItem);
-    });
-}
-
-async function exportToExcel() {
-    if (globalData.length === 0) {
-        alert('没有数据可导出');
-        return;
-    }
-    
-    const exportBtn = document.getElementById('exportBtn');
-    exportBtn.disabled = true;
-    exportBtn.textContent = '导出中...';
-    
-    try {
-        const response = await fetch('/api/export-excel', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                results: globalData
-            })
-        });
-        
-        if (response.ok) {
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'copywriting_result_' + new Date().toISOString().slice(0, 10) + '.xlsx';
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
-        } else {
-            alert('导出失败');
-        }
-    } catch (error) {
-        alert('导出失败：' + error.message);
-    } finally {
-        exportBtn.disabled = false;
-        exportBtn.textContent = '导出 Excel';
-    }
-}
-
-window.onload = function() {
-    initStyleSelect();
-    initImagePreviewModal();
-    loadData();
-};
 
 // 图片预览模态框功能
 let currentScale = 1;
@@ -449,3 +204,249 @@ function showImagePreview(imageSrc, caption = '') {
     modalImg.src = imageSrc;
     captionText.innerHTML = caption || '图片预览';
 }
+
+async function loadData() {
+    const loading = document.getElementById('loading');
+    const dataList = document.getElementById('dataList');
+    const processBtn = document.getElementById('processBtn');
+    
+    loading.style.display = 'block';
+    dataList.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/load-data', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // 存储原始数据源
+            rawDataSource = result.data;
+            
+            // 使用默认文风的文案初始化 globalData
+            currentStyle = result.default_style || '文艺';
+            
+            globalData = result.data.map(item => ({
+                data_id: item.id,
+                success: false,
+                result: {
+                    text: getTextByStyle(item, currentStyle),
+                    photos: item.photos
+                }
+            }));
+            
+            globalSystemPrompt = result.system_prompt || '';
+            
+            const styleSelect = document.getElementById('styleSelect');
+            styleSelect.innerHTML = '';
+            
+            if (result.styles && Array.isArray(result.styles)) {
+                result.styles.forEach(style => {
+                    const option = document.createElement('option');
+                    option.value = style;
+                    option.text = style;
+                    styleSelect.appendChild(option);
+                });
+                
+                if (result.default_style) {
+                    styleSelect.value = result.default_style;
+                }
+            }
+            
+            renderDataList();
+            processBtn.disabled = false;
+        } else {
+            alert('加载失败：' + result.error);
+        }
+    } catch (error) {
+        alert('请求失败：' + error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+async function processData() {
+    const processBtn = document.getElementById('processBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const loading = document.getElementById('loading');
+    const userPrompt = document.getElementById('userPrompt').value;
+    const selectedStyle = getSelectedStyle();
+    
+    // 如果正在处理中，则不允许重复点击
+    if (isProcessing) {
+        alert('正在处理中，请稍候...');
+        return;
+    }
+    
+    loading.style.display = 'block';
+    processBtn.disabled = true;
+    processBtn.textContent = '处理中...';
+    isProcessing = true;
+    
+    try {
+        const response = await fetch('/api/concurrent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userPrompt: userPrompt,
+                style: selectedStyle,
+                systemPrompt: globalSystemPrompt
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            globalData = result.results;
+            renderDataList();
+            processBtn.textContent = '开始处理';
+            exportBtn.disabled = false;
+        } else {
+            alert('处理失败：' + result.error);
+            processBtn.textContent = '开始处理';
+        }
+    } catch (error) {
+        alert('请求失败：' + error.message);
+        processBtn.textContent = '开始处理';
+    } finally {
+        loading.style.display = 'none';
+        processBtn.disabled = false;
+        isProcessing = false;
+    }
+}
+
+function renderDataList() {
+    const dataList = document.getElementById('dataList');
+    dataList.innerHTML = '';
+    
+    globalData.forEach((item, index) => {
+        const dataItem = document.createElement('div');
+        dataItem.className = 'data-item';
+        
+        let statusClass = 'status-pending';
+        let statusText = '待处理';
+        
+        if (item.success) {
+            statusClass = item.success ? 'status-success' : 'status-error';
+            statusText = item.success ? '成功' : '失败';
+        }
+        
+        let photosHtml = '';
+        if (item.result && item.result.photos) {
+            photosHtml = '<div class="photos-container">';
+            item.result.photos.forEach(photo => {
+                const photoUrl = '/api/photo/' + encodeURIComponent(photo.url);
+                photosHtml += `
+                    <div class="photo-item" onclick="showImagePreview('${photoUrl}', '图片 ${photo.id}')">
+                        <img src="${photoUrl}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
+                    </div>
+                `;
+            });
+            photosHtml += '</div>';
+        }
+        
+        let originalText = '';
+        let resultText = '';
+        
+        if (item.result && item.result.text) {
+            originalText = item.result.text;
+        }
+        
+        if (item.success && item.result && item.result.generated_text) {
+            resultText = `
+                <div class="text-block result-text">
+                    <div class="text-label">请求返回的文案</div>
+                    <div class="text-content">${item.result.generated_text}</div>
+                </div>
+            `;
+        } else if (!item.success && item.error) {
+            resultText = `
+                <div class="text-block error-text">
+                    <div class="text-label">错误信息</div>
+                    <div class="text-content">${item.error || '未知错误'}</div>
+                </div>
+            `;
+        }
+        
+        dataItem.innerHTML = `
+            <div class="data-item-header">
+                <span class="data-item-id">数据项 #${item.data_id || index + 1}</span>
+                <span class="data-item-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="data-item-content">
+                <div class="data-item-left">
+                    ${photosHtml}
+                </div>
+                <div class="data-item-center">
+                    <div class="text-section">
+                        <div class="text-block original-text">
+                            <div class="text-label">原始文案</div>
+                            <div class="text-content">${originalText || '无'}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-item-right">
+                    <div class="text-section">
+                        ${resultText || '<div class="text-block" style="border-left: 4px solid #999;"><div class="text-label">等待处理</div><div class="text-content" style="color: #999;">点击"开始处理"按钮生成文案</div></div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        dataList.appendChild(dataItem);
+    });
+}
+
+async function exportToExcel() {
+    if (globalData.length === 0) {
+        alert('没有数据可导出');
+        return;
+    }
+    
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.disabled = true;
+    exportBtn.textContent = '导出中...';
+    
+    try {
+        const response = await fetch('/api/export-excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                results: globalData
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'copywriting_result_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            alert('导出失败');
+        }
+    } catch (error) {
+        alert('导出失败：' + error.message);
+    } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = '导出 Excel';
+    }
+}
+
+window.onload = function() {
+    initStyleSelect();
+    initImagePreviewModal();
+    loadData();
+};

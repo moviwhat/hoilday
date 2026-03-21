@@ -1,0 +1,448 @@
+let globalData = [];
+let rawDataSource = [];  // 瀛樺偍鍘熷鏁版嵁婧愶紝鍖呭惈鎵€鏈夋枃椋庣殑鏂囨
+let isProcessed = false;
+let globalSystemPrompt = '';
+let currentStyle = '鏂囪壓';  // 褰撳墠閫変腑鐨勬枃椋?
+function initStyleSelect() {
+    const styleSelect = document.getElementById('styleSelect');
+    const customStyle = document.getElementById('customStyle');
+    
+    styleSelect.addEventListener('change', function() {
+        if (this.value === '鑷畾涔?) {
+            customStyle.style.display = 'inline-block';
+        } else {
+            customStyle.style.display = 'none';
+            customStyle.value = '';
+        }
+        
+        // 鏂囬鍒囨崲鏃舵洿鏂板師濮嬫枃妗堟樉绀?        if (!isProcessed) {
+            currentStyle = this.value;
+            updateTextByStyle();
+        }
+    });
+}
+
+function getSelectedStyle() {
+    const styleSelect = document.getElementById('styleSelect');
+    const customStyle = document.getElementById('customStyle');
+    
+    if (styleSelect.value === '鑷畾涔?) {
+        return customStyle.value || '鏂囪壓';
+    }
+    return styleSelect.value;
+}
+
+function getTextByStyle(item, style) {
+    // 浼樺厛浣跨敤鎸夋枃椋庡尯鍒嗙殑鏂囨
+    if (item.texts && item.texts[style]) {
+        return item.texts[style];
+    }
+    // 鍏煎鏃ф牸寮?    return item.text || '';
+}
+
+function updateTextByStyle() {
+    // 鏍规嵁褰撳墠鏂囬鏇存柊 globalData 涓殑鏂囨
+    globalData.forEach((item, index) => {
+        const rawItem = rawDataSource[index];
+        if (rawItem) {
+            item.result.text = getTextByStyle(rawItem, currentStyle);
+        }
+    });
+    renderDataList();
+}
+
+async function loadData() {
+    const loading = document.getElementById('loading');
+    const dataList = document.getElementById('dataList');
+    const processBtn = document.getElementById('processBtn');
+    
+    loading.style.display = 'block';
+    dataList.innerHTML = '';
+    
+    try {
+        const response = await fetch('/api/load-data', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // 瀛樺偍鍘熷鏁版嵁婧?            rawDataSource = result.data;
+            
+            // 浣跨敤榛樿鏂囬鐨勬枃妗堝垵濮嬪寲 globalData
+            currentStyle = result.default_style || '鏂囪壓';
+            
+            globalData = result.data.map(item => ({
+                data_id: item.id,
+                success: false,
+                result: {
+                    text: getTextByStyle(item, currentStyle),
+                    photos: item.photos
+                }
+            }));
+            
+            globalSystemPrompt = result.system_prompt || '';
+            
+            const styleSelect = document.getElementById('styleSelect');
+            styleSelect.innerHTML = '';
+            
+            if (result.styles && Array.isArray(result.styles)) {
+                result.styles.forEach(style => {
+                    const option = document.createElement('option');
+                    option.value = style;
+                    option.text = style;
+                    styleSelect.appendChild(option);
+                });
+                
+                if (result.default_style) {
+                    styleSelect.value = result.default_style;
+                }
+            }
+            
+            renderDataList();
+            processBtn.disabled = false;
+        } else {
+            alert('鍔犺浇澶辫触锛? + result.error);
+        }
+    } catch (error) {
+        alert('璇锋眰澶辫触锛? + error.message);
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+async function processData() {
+    const processBtn = document.getElementById('processBtn');
+    const exportBtn = document.getElementById('exportBtn');
+    const loading = document.getElementById('loading');
+    const userPrompt = document.getElementById('userPrompt').value;
+    const selectedStyle = getSelectedStyle();
+    
+    if (isProcessed) {
+        alert('宸茬粡澶勭悊杩囦簡锛屽闇€閲嶆柊澶勭悊璇峰埛鏂伴〉闈?);
+        return;
+    }
+    
+    loading.style.display = 'block';
+    processBtn.disabled = true;
+    processBtn.textContent = '澶勭悊涓?..';
+    
+    try {
+        const response = await fetch('/api/concurrent', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                userPrompt: userPrompt,
+                style: selectedStyle,
+                systemPrompt: globalSystemPrompt
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            globalData = result.results;
+            isProcessed = true;
+            renderDataList();
+            processBtn.textContent = '澶勭悊瀹屾垚';
+            exportBtn.disabled = false;
+        } else {
+            alert('澶勭悊澶辫触锛? + result.error);
+            processBtn.disabled = false;
+            processBtn.textContent = '寮€濮嬪鐞?;
+        }
+    } catch (error) {
+        alert('璇锋眰澶辫触锛? + error.message);
+        processBtn.disabled = false;
+        processBtn.textContent = '寮€濮嬪鐞?;
+    } finally {
+        loading.style.display = 'none';
+    }
+}
+
+function renderDataList() {
+    const dataList = document.getElementById('dataList');
+    dataList.innerHTML = '';
+    
+    globalData.forEach((item, index) => {
+        const dataItem = document.createElement('div');
+        dataItem.className = 'data-item';
+        
+        let statusClass = 'status-pending';
+        let statusText = '寰呭鐞?;
+        
+        if (isProcessed) {
+            statusClass = item.success ? 'status-success' : 'status-error';
+            statusText = item.success ? '鎴愬姛' : '澶辫触';
+        }
+        
+        let photosHtml = '';
+        if (item.result && item.result.photos) {
+            photosHtml = '<div class="photos-container">';
+            item.result.photos.forEach(photo => {
+                const photoUrl = '/api/photo/' + encodeURIComponent(photo.url);
+                photosHtml += `
+                    <div class="photo-item" onclick="showImagePreview('${photoUrl}', '鍥剧墖 ${photo.id}')">
+                        <img src="${photoUrl}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>鍥剧墖鍔犺浇澶辫触</text></svg>'">
+                    </div>
+                `;
+            });
+            photosHtml += '</div>';
+        }
+        
+        let originalText = '';
+        let resultText = '';
+        
+        if (item.result && item.result.text) {
+            originalText = item.result.text;
+        }
+        
+        if (isProcessed && item.success && item.result && item.result.generated_text) {
+            resultText = `
+                <div class="text-block result-text">
+                    <div class="text-label">璇锋眰杩斿洖鐨勬枃妗?/div>
+                    <div class="text-content">${item.result.generated_text}</div>
+                </div>
+            `;
+        } else if (isProcessed && !item.success) {
+            resultText = `
+                <div class="text-block error-text">
+                    <div class="text-label">閿欒淇℃伅</div>
+                    <div class="text-content">${item.error || '鏈煡閿欒'}</div>
+                </div>
+            `;
+        }
+        
+        dataItem.innerHTML = `
+            <div class="data-item-header">
+                <span class="data-item-id">鏁版嵁椤?#${item.data_id || index + 1}</span>
+                <span class="data-item-status ${statusClass}">${statusText}</span>
+            </div>
+            <div class="data-item-content">
+                <div class="data-item-left">
+                    ${photosHtml}
+                </div>
+                <div class="data-item-center">
+                    <div class="text-section">
+                        <div class="text-block original-text">
+                            <div class="text-label">鍘熷鏂囨</div>
+                            <div class="text-content">${originalText || '鏃?}</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="data-item-right">
+                    <div class="text-section">
+                        ${resultText || '<div class="text-block" style="border-left: 4px solid #999;"><div class="text-label">绛夊緟澶勭悊</div><div class="text-content" style="color: #999;">鐐瑰嚮"寮€濮嬪鐞?鎸夐挳鐢熸垚鏂囨</div></div>'}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        dataList.appendChild(dataItem);
+    });
+}
+
+async function exportToExcel() {
+    if (globalData.length === 0) {
+        alert('娌℃湁鏁版嵁鍙鍑?);
+        return;
+    }
+    
+    const exportBtn = document.getElementById('exportBtn');
+    exportBtn.disabled = true;
+    exportBtn.textContent = '瀵煎嚭涓?..';
+    
+    try {
+        const response = await fetch('/api/export-excel', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                results: globalData
+            })
+        });
+        
+        if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'copywriting_result_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+        } else {
+            alert('瀵煎嚭澶辫触');
+        }
+    } catch (error) {
+        alert('瀵煎嚭澶辫触锛? + error.message);
+    } finally {
+        exportBtn.disabled = false;
+        exportBtn.textContent = '瀵煎嚭 Excel';
+    }
+}
+
+window.onload = function() {
+    initStyleSelect();
+    initImagePreviewModal();
+    loadData();
+};
+
+// 鍥剧墖棰勮妯℃€佹鍔熻兘
+let currentScale = 1;
+let currentX = 0;
+let currentY = 0;
+let isDragging = false;
+let startX, startY;
+let lastTouchDistance = 0;
+let modalImg, modalImageContainer;
+
+function initImagePreviewModal() {
+    const modal = document.getElementById('imagePreviewModal');
+    modalImg = document.getElementById('previewImage');
+    modalImageContainer = document.getElementById('modalImageContainer');
+    const closeBtn = document.getElementsByClassName('modal-close')[0];
+    
+    // 鐐瑰嚮鍏抽棴鎸夐挳鍏抽棴妯℃€佹
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        resetZoom();
+    };
+    
+    // 鐐瑰嚮妯℃€佹鑳屾櫙鍏抽棴
+    modal.onclick = function(event) {
+        if (event.target === modal || event.target === modalImageContainer) {
+            modal.style.display = "none";
+            resetZoom();
+        }
+    };
+    
+    // ESC 閿叧闂ā鎬佹
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modal.style.display === 'block') {
+            modal.style.display = "none";
+            resetZoom();
+        }
+    });
+    
+    // 婊氳疆缂╂斁
+    modalImageContainer.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        applyZoom(delta);
+    });
+    
+    // 榧犳爣鎷栨嫿
+    modalImageContainer.addEventListener('mousedown', function(e) {
+        if (e.button === 0) {
+            isDragging = true;
+            startX = e.clientX - currentX;
+            startY = e.clientY - currentY;
+            modalImageContainer.style.cursor = 'grabbing';
+        }
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+            e.preventDefault();
+            currentX = e.clientX - startX;
+            currentY = e.clientY - startY;
+            applyTransform();
+        }
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isDragging = false;
+        modalImageContainer.style.cursor = 'grab';
+    });
+    
+    // 鍙屽嚮閲嶇疆
+    modalImageContainer.addEventListener('dblclick', function() {
+        resetZoom();
+    });
+    
+    // 瑙︽懜浜嬩欢 - 鍙屾寚缂╂斁
+    modalImageContainer.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            lastTouchDistance = getTouchDistance(e.touches);
+        } else if (e.touches.length === 1 && currentScale > 1) {
+            isDragging = true;
+            startX = e.touches[0].clientX - currentX;
+            startY = e.touches[0].clientY - currentY;
+        }
+    });
+    
+    modalImageContainer.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 2) {
+            const distance = getTouchDistance(e.touches);
+            if (lastTouchDistance > 0) {
+                const delta = (distance - lastTouchDistance) * 0.005;
+                applyZoom(delta);
+            }
+            lastTouchDistance = distance;
+        } else if (e.touches.length === 1 && isDragging) {
+            currentX = e.touches[0].clientX - startX;
+            currentY = e.touches[0].clientY - startY;
+            applyTransform();
+        }
+    });
+    
+    modalImageContainer.addEventListener('touchend', function(e) {
+        if (e.touches.length < 2) {
+            lastTouchDistance = 0;
+        }
+        if (e.touches.length === 0) {
+            isDragging = false;
+        }
+    });
+}
+
+function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function applyZoom(delta) {
+    currentScale = Math.max(0.5, Math.min(currentScale + delta, 5));
+    applyTransform();
+}
+
+function applyTransform() {
+    modalImg.style.transform = `scale(${currentScale}) translate(${currentX / currentScale}px, ${currentY / currentScale}px)`;
+}
+
+function zoomInPreview() {
+    applyZoom(0.3);
+}
+
+function zoomOutPreview() {
+    applyZoom(-0.3);
+}
+
+function resetZoom() {
+    currentScale = 1;
+    currentX = 0;
+    currentY = 0;
+    applyTransform();
+}
+
+function showImagePreview(imageSrc, caption = '') {
+    const modal = document.getElementById('imagePreviewModal');
+    const captionText = document.getElementById('caption');
+    
+    resetZoom();
+    modal.style.display = "block";
+    modalImg.src = imageSrc;
+    captionText.innerHTML = caption || '鍥剧墖棰勮';
+}
+
