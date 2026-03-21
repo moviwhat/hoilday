@@ -34,6 +34,21 @@
         <div id="dataList" class="data-list"></div>
     </div>
     
+    <!-- 图片预览模态框 -->
+    <div id="imagePreviewModal" class="modal">
+        <span class="modal-close">&times;</span>
+        <div class="modal-zoom-controls">
+            <button onclick="zoomInPreview()">+</button>
+            <button onclick="zoomOutPreview()">-</button>
+            <button onclick="resetZoom()">重置</button>
+        </div>
+        <div class="modal-image-container" id="modalImageContainer">
+            <img class="modal-content" id="previewImage">
+        </div>
+        <div id="caption"></div>
+        <div class="modal-hint">滚轮缩放 | 双指缩放 | 拖拽移动 | 双击重置</div>
+    </div>
+    
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

@@ -191,7 +191,7 @@ function renderDataList() {
             item.result.photos.forEach(photo => {
                 const photoUrl = '/api/photo/' + encodeURIComponent(photo.url);
                 photosHtml += `
-                    <div class="photo-item">
+                    <div class="photo-item" onclick="showImagePreview('${photoUrl}', '图片 ${photo.id}')">
                         <img src="${photoUrl}" alt="Photo ${photo.id}" onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22><text y=%2250%%22 x=%2250%%22 text-anchor=%22middle%22>图片加载失败</text></svg>'">
                     </div>
                 `;
@@ -295,5 +295,157 @@ async function exportToExcel() {
 
 window.onload = function() {
     initStyleSelect();
+    initImagePreviewModal();
     loadData();
 };
+
+// 图片预览模态框功能
+let currentScale = 1;
+let currentX = 0;
+let currentY = 0;
+let isDragging = false;
+let startX, startY;
+let lastTouchDistance = 0;
+let modalImg, modalImageContainer;
+
+function initImagePreviewModal() {
+    const modal = document.getElementById('imagePreviewModal');
+    modalImg = document.getElementById('previewImage');
+    modalImageContainer = document.getElementById('modalImageContainer');
+    const closeBtn = document.getElementsByClassName('modal-close')[0];
+    
+    // 点击关闭按钮关闭模态框
+    closeBtn.onclick = function() {
+        modal.style.display = "none";
+        resetZoom();
+    };
+    
+    // 点击模态框背景关闭
+    modal.onclick = function(event) {
+        if (event.target === modal || event.target === modalImageContainer) {
+            modal.style.display = "none";
+            resetZoom();
+        }
+    };
+    
+    // ESC 键关闭模态框
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape' && modal.style.display === 'block') {
+            modal.style.display = "none";
+            resetZoom();
+        }
+    });
+    
+    // 滚轮缩放
+    modalImageContainer.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.15 : 0.15;
+        applyZoom(delta);
+    });
+    
+    // 鼠标拖拽
+    modalImageContainer.addEventListener('mousedown', function(e) {
+        if (e.button === 0) {
+            isDragging = true;
+            startX = e.clientX - currentX;
+            startY = e.clientY - currentY;
+            modalImageContainer.style.cursor = 'grabbing';
+        }
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (isDragging) {
+            e.preventDefault();
+            currentX = e.clientX - startX;
+            currentY = e.clientY - startY;
+            applyTransform();
+        }
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isDragging = false;
+        modalImageContainer.style.cursor = 'grab';
+    });
+    
+    // 双击重置
+    modalImageContainer.addEventListener('dblclick', function() {
+        resetZoom();
+    });
+    
+    // 触摸事件 - 双指缩放
+    modalImageContainer.addEventListener('touchstart', function(e) {
+        if (e.touches.length === 2) {
+            lastTouchDistance = getTouchDistance(e.touches);
+        } else if (e.touches.length === 1 && currentScale > 1) {
+            isDragging = true;
+            startX = e.touches[0].clientX - currentX;
+            startY = e.touches[0].clientY - currentY;
+        }
+    });
+    
+    modalImageContainer.addEventListener('touchmove', function(e) {
+        e.preventDefault();
+        
+        if (e.touches.length === 2) {
+            const distance = getTouchDistance(e.touches);
+            if (lastTouchDistance > 0) {
+                const delta = (distance - lastTouchDistance) * 0.005;
+                applyZoom(delta);
+            }
+            lastTouchDistance = distance;
+        } else if (e.touches.length === 1 && isDragging) {
+            currentX = e.touches[0].clientX - startX;
+            currentY = e.touches[0].clientY - startY;
+            applyTransform();
+        }
+    });
+    
+    modalImageContainer.addEventListener('touchend', function(e) {
+        if (e.touches.length < 2) {
+            lastTouchDistance = 0;
+        }
+        if (e.touches.length === 0) {
+            isDragging = false;
+        }
+    });
+}
+
+function getTouchDistance(touches) {
+    const dx = touches[0].clientX - touches[1].clientX;
+    const dy = touches[0].clientY - touches[1].clientY;
+    return Math.sqrt(dx * dx + dy * dy);
+}
+
+function applyZoom(delta) {
+    currentScale = Math.max(0.5, Math.min(currentScale + delta, 5));
+    applyTransform();
+}
+
+function applyTransform() {
+    modalImg.style.transform = `scale(${currentScale}) translate(${currentX / currentScale}px, ${currentY / currentScale}px)`;
+}
+
+function zoomInPreview() {
+    applyZoom(0.3);
+}
+
+function zoomOutPreview() {
+    applyZoom(-0.3);
+}
+
+function resetZoom() {
+    currentScale = 1;
+    currentX = 0;
+    currentY = 0;
+    applyTransform();
+}
+
+function showImagePreview(imageSrc, caption = '') {
+    const modal = document.getElementById('imagePreviewModal');
+    const captionText = document.getElementById('caption');
+    
+    resetZoom();
+    modal.style.display = "block";
+    modalImg.src = imageSrc;
+    captionText.innerHTML = caption || '图片预览';
+}
