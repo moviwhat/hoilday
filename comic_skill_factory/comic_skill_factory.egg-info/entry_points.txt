@@ -1,0 +1,2 @@
+[console_scripts]
+comic-skill = comic_skill_factory.cli:main

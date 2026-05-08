@@ -1,0 +1,14 @@
+Metadata-Version: 2.4
+Name: comic_skill_factory
+Version: 1.0.0
+Summary: 图片漫画风格处理 Skill 化工
+Author: 
+Classifier: Programming Language :: Python :: 3
+Classifier: Topic :: Multimedia :: Graphics
+Requires-Python: >=3.8
+Requires-Dist: Pillow>=9.0.0
+Requires-Dist: numpy>=1.20.0
+Dynamic: classifier
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary

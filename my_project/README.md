@@ -28,6 +28,7 @@ my_project/
 ├── app.py                      # Flask 应用主文件（路由和业务逻辑）
 ├── config.py                   # 配置文件（环境变量和常量）
 ├── requirements.txt            # Python 依赖列表
+├── .venv/                      # Python 虚拟环境
 ├── config/                     # 数据配置目录
 │   └── data.json               # 照片数据配置文件
 ├── templates/                  # HTML 模板目录
@@ -45,33 +46,45 @@ my_project/
 
 ## 快速开始
 
-### 1. 安装依赖
+### 1. 激活虚拟环境（推荐）
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+### 2. 安装依赖
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. 配置数据文件
+### 3. 配置数据文件
 
 编辑 `config/data.json` 文件，配置你的数据项和图片路径。
 
-### 3. 配置环境变量（可选）
+### 4. 配置环境变量（可选）
 
-创建 `.env` 文件或设置环境变量：
-
+Linux/Mac:
 ```bash
 export API_BASE_URL=http://your-api-server.com/api
 export API_TIMEOUT=30
 export MAX_CONCURRENT_REQUESTS=5
 ```
 
-### 4. 启动项目
+Windows (PowerShell):
+```powershell
+$env:API_BASE_URL="http://your-api-server.com/api"
+$env:API_TIMEOUT=30
+$env:MAX_CONCURRENT_REQUESTS=5
+```
+
+### 5. 启动项目
 
 ```bash
 python app.py
 ```
 
-### 5. 访问应用
+### 6. 访问应用
 
 打开浏览器访问 http://localhost:5000
 
@@ -129,6 +142,33 @@ python app.py
   - 用户提示词（如果有）
   - 文风（如果有）
   - 系统提示词（如果有）
+- **返回**:
+  ```json
+  {
+    "success": true,
+    "total": 2,
+    "results": [
+      {
+        "data_id": 1,
+        "success": true,
+        "result": {
+          "text": "原始文案",
+          "photos": [{"id": 1, "url": "path/to/photo.jpg"}],
+          "generated_text": "API返回的文案"
+        }
+      },
+      {
+        "data_id": 2,
+        "success": false,
+        "error": "错误信息",
+        "result": {
+          "text": "原始文案",
+          "photos": []
+        }
+      }
+    ]
+  }
+  ```
 
 #### 进度输出示例
 ```
@@ -304,6 +344,59 @@ index.html (主页面)
         {
           "id": 1,
           "url": "/path/to/photo3.jpg"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 字段说明
+
+**根对象**
+- `style`: 文风选择数组（字符串数组），前端会动态生成下拉框
+- `default_style`: 默认选中的文风（字符串）
+- `system_prompt`: 系统提示词（字符串）
+- `data`: 数据项数组（M 个数据项）
+
+**数据项 (data 数组中的对象)**
+- `id`: 数据项唯一标识（整数）
+- `text`: 默认文案（字符串）
+- `photos`: 照片数组（N 组照片）
+
+**照片对象 (photos 数组中的对象)**
+- `id`: 照片唯一标识（整数）
+- `url`: 照片本地文件路径（字符串）
+
+### 示例
+
+```json
+{
+  "style": ["文艺", "网红", "叙事", "自定义"],
+  "default_style": "文艺",
+  "system_prompt": "你是一个专业的文案生成助手，请根据用户提供的图片和文案生成合适的推广内容。",
+  "data": [
+    {
+      "id": 1,
+      "text": "这是长城的美丽风景照片",
+      "photos": [
+        {
+          "id": 1,
+          "url": "E:/photos/great_wall_1.jpg"
+        },
+        {
+          "id": 2,
+          "url": "E:/photos/great_wall_2.jpg"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "text": "城市夜景照片集",
+      "photos": [
+        {
+          "id": 1,
+          "url": "E:/photos/city_night.jpg"
         }
       ]
     }
